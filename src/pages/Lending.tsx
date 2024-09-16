@@ -1,135 +1,288 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 
-const WeeklyReport: React.FC = () => {
-  const [data, setData] = useState<any[]>([]);
-  const [groupBy, setGroupBy] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+interface LendingItem {
+  id: string;
+  itemName: string;
+  organization: string;
+  dateLent: string;
+  dateReturned: string | null;
+  notes: string;
+}
+
+const Lending: React.FC = () => {
+  const [items, setItems] = useState<LendingItem[]>([]);
+  const [newItem, setNewItem] = useState<Omit<LendingItem, 'id'>>({
+    itemName: '',
+    organization: '',
+    dateLent: new Date().toISOString().split('T')[0],
+    dateReturned: null,
+    notes: '',
+  });
+  const [filter, setFilter] = useState<'all' | 'lent' | 'returned'>('all');
+  const [editingItem, setEditingItem] = useState<LendingItem | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const endDate = new Date();
-      let startDate: Date;
-      
-      switch (groupBy) {
-        case 'daily':
-          startDate = subDays(endDate, 7);
-          break;
-        case 'weekly':
-          startDate = subDays(endDate, 28);
-          break;
-        case 'monthly':
-          startDate = subDays(endDate, 180);
-          break;
-      }
+    fetchItems();
+  }, []);
 
-      const salesQuery = query(
-        collection(db, 'sales'),
-        where('date', '>=', startOfDay(startDate).toISOString().split('T')[0]),
-        where('date', '<=', endOfDay(endDate).toISOString().split('T')[0])
-      );
+  const fetchItems = async () => {
+    const q = query(collection(db, 'lendingItems'), orderBy('dateLent', 'desc'));
+    const querySnapshot = await getDocs(q);
+    const fetchedItems: LendingItem[] = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as LendingItem));
+    setItems(fetchedItems);
+  };
 
-      const expensesQuery = query(
-        collection(db, 'expenses'),
-        where('date', '>=', startOfDay(startDate).toISOString().split('T')[0]),
-        where('date', '<=', endOfDay(endDate).toISOString().split('T')[0])
-      );
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewItem(prev => ({ ...prev, [name]: value }));
+  };
 
-      const salesSnapshot = await getDocs(salesQuery);
-      const expensesSnapshot = await getDocs(expensesQuery);
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditingItem(prev => prev ? { ...prev, [name]: value } : null);
+  };
 
-      const salesByDate: { [key: string]: number } = {};
-      const expensesByDate: { [key: string]: number } = {};
-
-      salesSnapshot.forEach((doc) => {
-        const { date, amount } = doc.data();
-        salesByDate[date] = (salesByDate[date] || 0) + amount;
-      });
-
-      expensesSnapshot.forEach((doc) => {
-        const { date, amount } = doc.data();
-        expensesByDate[date] = (expensesByDate[date] || 0) + amount;
-      });
-
-      const combinedData = Object.keys({ ...salesByDate, ...expensesByDate })
-        .sort()
-        .map((date) => ({
-          date,
-          sales: salesByDate[date] || 0,
-          expenses: expensesByDate[date] || 0,
-        }));
-
-      const groupedData = groupData(combinedData, groupBy);
-      setData(groupedData);
-    };
-
-    fetchData();
-  }, [groupBy]);
-
-  const groupData = (data: any[], grouping: 'daily' | 'weekly' | 'monthly') => {
-    if (grouping === 'daily') return data;
-
-    const grouped: { [key: string]: { sales: number; expenses: number } } = {};
-
-    data.forEach((item) => {
-      const date = new Date(item.date);
-      let key: string;
-
-      if (grouping === 'weekly') {
-        key = `Week ${format(date, 'w')}`;
-      } else {
-        key = format(date, 'MMM yyyy');
-      }
-
-      if (!grouped[key]) {
-        grouped[key] = { sales: 0, expenses: 0 };
-      }
-      grouped[key].sales += item.sales;
-      grouped[key].expenses += item.expenses;
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await addDoc(collection(db, 'lendingItems'), newItem);
+    setNewItem({
+      itemName: '',
+      organization: '',
+      dateLent: new Date().toISOString().split('T')[0],
+      dateReturned: null,
+      notes: '',
     });
-
-    return Object.entries(grouped).map(([date, values]) => ({ date, ...values }));
+    fetchItems();
   };
 
-  const formatXAxis = (tickItem: string) => {
-    if (groupBy === 'daily') {
-      return format(new Date(tickItem), 'MMM d');
+  const handleEditItem = (item: LendingItem) => {
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingItem) {
+      const itemRef = doc(db, 'lendingItems', editingItem.id);
+      await updateDoc(itemRef, {
+        itemName: editingItem.itemName,
+        organization: editingItem.organization,
+        dateLent: editingItem.dateLent,
+        dateReturned: editingItem.dateReturned,
+        notes: editingItem.notes,
+      });
+      setEditingItem(null);
+      fetchItems();
     }
-    return tickItem;
   };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+  };
+
+  const handleReturnItem = async (id: string) => {
+    const itemRef = doc(db, 'lendingItems', id);
+    await updateDoc(itemRef, {
+      dateReturned: new Date().toISOString().split('T')[0],
+    });
+    fetchItems();
+  };
+
+  const handleUndoReturn = async (id: string) => {
+    const itemRef = doc(db, 'lendingItems', id);
+    await updateDoc(itemRef, {
+      dateReturned: null,
+    });
+    fetchItems();
+  };
+
+  const filteredItems = items.filter(item => {
+    if (filter === 'lent') return item.dateReturned === null;
+    if (filter === 'returned') return item.dateReturned !== null;
+    return true;
+  });
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Financial Report</h2>
-      <div className="mb-4">
-        <label className="mr-2">
-          Group by:
-          <select 
-            value={groupBy} 
-            onChange={(e) => setGroupBy(e.target.value as 'daily' | 'weekly' | 'monthly')}
-            className="ml-2 p-2 border rounded"
+    <div className="lending-page">
+      <h1 className="text-2xl font-bold mb-4">Lending Tracker</h1>
+      
+      <form onSubmit={handleAddItem} className="mb-6 bg-gray-100 p-4 rounded-lg">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <input
+              type="text"
+              name="itemName"
+              value={newItem.itemName}
+              onChange={handleInputChange}
+              placeholder="Item Name"
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              name="organization"
+              value={newItem.organization}
+              onChange={handleInputChange}
+              placeholder="Organization"
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <input
+              type="date"
+              name="dateLent"
+              value={newItem.dateLent}
+              onChange={handleInputChange}
+              required
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              name="notes"
+              value={newItem.notes}
+              onChange={handleInputChange}
+              placeholder="Notes (optional)"
+              className="w-full p-2 border rounded"
+            />
+          </div>
+        </div>
+        <button type="submit" className="mt-4 bg-blue-500 text-white px-4 py-2 rounded w-full">
+          Add Lending Item
+        </button>
+      </form>
+
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Lending Items</h2>
+        <div>
+          <label className="mr-2">Filter:</label>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as 'all' | 'lent' | 'returned')}
+            className="p-2 border rounded"
           >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
+            <option value="all">All</option>
+            <option value="lent">Currently Lent</option>
+            <option value="returned">Returned</option>
           </select>
-        </label>
+        </div>
       </div>
-      <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" tickFormatter={formatXAxis} />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="sales" fill="#10B981" name="Income" /> {/* Green color for sales/income */}
-          <Bar dataKey="expenses" fill="#EF4444" name="Expenses" /> {/* Red color for expenses */}
-        </BarChart>
-      </ResponsiveContainer>
+
+      <table className="w-full">
+        <thead>
+          <tr>
+            <th className="text-left">Item Name</th>
+            <th className="text-left">Organization</th>
+            <th className="text-left">Date Lent</th>
+            <th className="text-left">Date Returned</th>
+            <th className="text-left">Notes</th>
+            <th className="text-left">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredItems.map((item) => (
+            <tr key={item.id}>
+              {editingItem && editingItem.id === item.id ? (
+                <>
+                  <td>
+                    <input
+                      type="text"
+                      name="itemName"
+                      value={editingItem.itemName}
+                      onChange={handleEditInputChange}
+                      className="w-full p-1 border rounded"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      name="organization"
+                      value={editingItem.organization}
+                      onChange={handleEditInputChange}
+                      className="w-full p-1 border rounded"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="date"
+                      name="dateLent"
+                      value={editingItem.dateLent}
+                      onChange={handleEditInputChange}
+                      className="w-full p-1 border rounded"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="date"
+                      name="dateReturned"
+                      value={editingItem.dateReturned || ''}
+                      onChange={handleEditInputChange}
+                      className="w-full p-1 border rounded"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      name="notes"
+                      value={editingItem.notes}
+                      onChange={handleEditInputChange}
+                      className="w-full p-1 border rounded"
+                    />
+                  </td>
+                  <td>
+                    <button onClick={handleSaveEdit} className="bg-blue-500 text-white px-2 py-1 rounded mr-2">
+                      Save
+                    </button>
+                    <button onClick={handleCancelEdit} className="bg-gray-300 text-gray-800 px-2 py-1 rounded">
+                      Cancel
+                    </button>
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td>{item.itemName}</td>
+                  <td>{item.organization}</td>
+                  <td>{item.dateLent}</td>
+                  <td>{item.dateReturned || 'Not returned'}</td>
+                  <td>{item.notes}</td>
+                  <td>
+                    <button
+                      onClick={() => handleEditItem(item)}
+                      className="bg-yellow-500 text-white px-2 py-1 rounded mr-2"
+                    >
+                      Edit
+                    </button>
+                    {!item.dateReturned ? (
+                      <button
+                        onClick={() => handleReturnItem(item.id)}
+                        className="bg-green-500 text-white px-2 py-1 rounded mr-2"
+                      >
+                        Mark as Returned
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleUndoReturn(item.id)}
+                        className="bg-red-500 text-white px-2 py-1 rounded"
+                      >
+                        Undo Return
+                      </button>
+                    )}
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
 
-export default WeeklyReport;
+export default Lending;
