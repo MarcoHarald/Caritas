@@ -6,15 +6,30 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
+type GroupBy = 'daily' | 'weekly' | 'monthly';
+
 const WeeklyReport: React.FC = () => {
   const [salesData, setSalesData] = useState<number[]>([]);
   const [expensesData, setExpensesData] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
+  const [groupBy, setGroupBy] = useState<GroupBy>('weekly');
 
   useEffect(() => {
     const fetchData = async () => {
       const endDate = new Date();
-      const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+      let startDate: Date;
+      
+      switch (groupBy) {
+        case 'daily':
+          startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'weekly':
+          startDate = new Date(endDate.getTime() - 4 * 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'monthly':
+          startDate = new Date(endDate.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
+          break;
+      }
 
       const salesQuery = query(
         collection(db, 'sales'),
@@ -44,18 +59,37 @@ const WeeklyReport: React.FC = () => {
         expensesByDate[date] = (expensesByDate[date] || 0) + amount;
       });
 
-      const dates = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-        return d.toISOString().split('T')[0];
-      });
+      const groupData = (data: { [key: string]: number }) => {
+        if (groupBy === 'daily') return data;
+
+        const groupedData: { [key: string]: number } = {};
+        Object.entries(data).forEach(([date, amount]) => {
+          const key = groupBy === 'weekly'
+            ? getWeekStart(new Date(date)).toISOString().split('T')[0]
+            : date.slice(0, 7); // YYYY-MM for monthly
+          groupedData[key] = (groupedData[key] || 0) + amount;
+        });
+        return groupedData;
+      };
+
+      const salesByGroup = groupData(salesByDate);
+      const expensesByGroup = groupData(expensesByDate);
+
+      const dates = Object.keys(salesByGroup).sort();
 
       setLabels(dates);
-      setSalesData(dates.map((date) => salesByDate[date] || 0));
-      setExpensesData(dates.map((date) => expensesByDate[date] || 0));
+      setSalesData(dates.map((date) => salesByGroup[date] || 0));
+      setExpensesData(dates.map((date) => expensesByGroup[date] || 0));
     };
 
     fetchData();
-  }, []);
+  }, [groupBy]);
+
+  const getWeekStart = (date: Date) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - d.getDay());
+    return d;
+  };
 
   const data = {
     labels,
@@ -77,7 +111,15 @@ const WeeklyReport: React.FC = () => {
 
   return (
     <div>
-      <h2>Weekly Report</h2>
+      <h2>Financial Report</h2>
+      <div>
+        <label>Group by: </label>
+        <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
       <Line data={data} />
       <div>
         <h3>Summary</h3>

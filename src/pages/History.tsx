@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { PDFDocument, rgb } from 'pdf-lib';
+import { format as formatDate } from 'date-fns';
 
 interface Entry {
   id: string;
@@ -17,6 +19,7 @@ const History: React.FC = () => {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [startBalance, setStartBalance] = useState(0);
   const [endBalance, setEndBalance] = useState(0);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
 
   const fetchEntries = async () => {
     const salesQuery = query(
@@ -77,6 +80,202 @@ const History: React.FC = () => {
     }
   };
 
+  const generatePDF = async () => {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595.28, 841.89]); // A4 size
+    const { width, height } = page.getSize();
+    const fontSize = 10;
+    const lineHeight = fontSize * 1.5;
+
+    const helveticaBold = await pdfDoc.embedFont('Helvetica-Bold');
+
+    // Add title
+    page.drawText('Financial History Report', {
+      x: 50,
+      y: height - 50,
+      size: 20,
+      color: rgb(0.1, 0.1, 0.1),
+      font: helveticaBold,
+    });
+
+    // Add date range
+    page.drawText(`Date Range: ${formatDate(new Date(startDate), 'MMMM d, yyyy')} to ${formatDate(new Date(endDate), 'MMMM d, yyyy')}`, {
+      x: 50,
+      y: height - 80,
+      size: fontSize,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+
+    const drawTable = (entries: Entry[], startY: number, title: string) => {
+      let yOffset = startY;
+      
+      // Draw section title
+      page.drawText(title, {
+        x: 50,
+        y: yOffset,
+        size: fontSize + 2,
+        color: rgb(0.1, 0.1, 0.1),
+        font: helveticaBold,
+      });
+      yOffset -= lineHeight * 1.5;
+
+      // Draw table header
+      const columnWidths = [80, 200, 80];
+      const headers = ['Date', 'Item Name', 'Amount'];
+
+      page.drawRectangle({
+        x: 50,
+        y: yOffset - lineHeight,
+        width: width - 100,
+        height: lineHeight,
+        color: rgb(0.9, 0.9, 0.9),
+      });
+
+      let xOffset = 50;
+      headers.forEach((header, index) => {
+        page.drawText(header, {
+          x: xOffset + 5,
+          y: yOffset - fontSize,
+          size: fontSize,
+          color: rgb(0.1, 0.1, 0.1),
+          font: helveticaBold,
+        });
+        xOffset += columnWidths[index];
+      });
+
+      yOffset -= lineHeight;
+
+      // Draw table rows
+      let subtotal = 0;
+      for (const entry of entries) {
+        if (yOffset < 50) {
+          page = pdfDoc.addPage([595.28, 841.89]);
+          yOffset = height - 50;
+        }
+
+        subtotal += entry.amount;
+
+        page.drawLine({
+          start: { x: 50, y: yOffset },
+          end: { x: width - 50, y: yOffset },
+          thickness: 0.5,
+          color: rgb(0.8, 0.8, 0.8),
+        });
+
+        xOffset = 50;
+        [
+          formatDate(new Date(entry.date), 'MMM d, yyyy'),
+          entry.itemName || '',
+          `$${entry.amount.toFixed(2)}`,
+        ].forEach((text, index) => {
+          if (text !== undefined) {
+            page.drawText(text, {
+              x: xOffset + 5,
+              y: yOffset - fontSize,
+              size: fontSize,
+              color: rgb(0.2, 0.2, 0.2),
+            });
+          }
+          xOffset += columnWidths[index];
+        });
+
+        yOffset -= lineHeight;
+      }
+
+      // Draw subtotal
+      yOffset -= lineHeight;
+      page.drawText('Subtotal:', {
+        x: 50,
+        y: yOffset,
+        size: fontSize,
+        color: rgb(0.1, 0.1, 0.1),
+        font: helveticaBold,
+      });
+      page.drawText(`$${subtotal.toFixed(2)}`, {
+        x: width - 130,
+        y: yOffset,
+        size: fontSize,
+        color: rgb(0.1, 0.1, 0.1),
+        font: helveticaBold,
+      });
+
+      return yOffset - lineHeight * 2;
+    };
+
+    const salesEntries = entries.filter(entry => entry.type === 'sale');
+    const expenseEntries = entries.filter(entry => entry.type === 'expense');
+
+    let currentY = height - 120;
+    currentY = drawTable(salesEntries, currentY, 'Sales');
+    currentY = drawTable(expenseEntries, currentY, 'Expenses');
+
+    // Add summary
+    currentY -= lineHeight;
+    page.drawText('Summary:', {
+      x: 50,
+      y: currentY,
+      size: fontSize + 2,
+      color: rgb(0.1, 0.1, 0.1),
+      font: helveticaBold,
+    });
+    currentY -= lineHeight;
+
+    const summaryItems = [
+      { label: 'Balance at start:', value: startBalance },
+      { label: 'Total Sales:', value: salesEntries.reduce((sum, entry) => sum + entry.amount, 0) },
+      { label: 'Total Expenses:', value: expenseEntries.reduce((sum, entry) => sum + entry.amount, 0) },
+      { label: 'Balance at end:', value: endBalance },
+      { label: 'Change in balance:', value: endBalance - startBalance },
+    ];
+
+    summaryItems.forEach(item => {
+      page.drawText(item.label, {
+        x: 50,
+        y: currentY,
+        size: fontSize,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      page.drawText(`$${item.value.toFixed(2)}`, {
+        x: 200,
+        y: currentY,
+        size: fontSize,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      currentY -= lineHeight;
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `financial_history_${formatDate(new Date(), 'yyyy-MM-dd')}.pdf`;
+    link.click();
+  };
+
+  const handleEdit = (entry: Entry) => {
+    setEditingEntry(entry);
+  };
+
+  const handleSave = async (updatedEntry: Entry) => {
+    try {
+      const entryRef = doc(db, updatedEntry.type === 'sale' ? 'sales' : 'expenses', updatedEntry.id);
+      await updateDoc(entryRef, {
+        date: updatedEntry.date,
+        itemName: updatedEntry.itemName,
+        amount: updatedEntry.amount,
+      });
+      setEditingEntry(null);
+      fetchEntries();
+    } catch (error) {
+      console.error('Error updating entry:', error);
+      alert('Error updating entry. Please try again.');
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingEntry(null);
+  };
+
   return (
     <div>
       <h1>History</h1>
@@ -107,15 +306,52 @@ const History: React.FC = () => {
             <th>Type</th>
             <th>Item Name</th>
             <th>Amount</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {entries.map((entry) => (
             <tr key={entry.id}>
-              <td>{entry.date}</td>
-              <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
-              <td>{entry.itemName}</td>
-              <td>${entry.amount.toFixed(2)}</td>
+              {editingEntry && editingEntry.id === entry.id ? (
+                <>
+                  <td>
+                    <input
+                      type="date"
+                      value={editingEntry.date}
+                      onChange={(e) => setEditingEntry({ ...editingEntry, date: e.target.value })}
+                    />
+                  </td>
+                  <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={editingEntry.itemName}
+                      onChange={(e) => setEditingEntry({ ...editingEntry, itemName: e.target.value })}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={editingEntry.amount}
+                      onChange={(e) => setEditingEntry({ ...editingEntry, amount: parseFloat(e.target.value) })}
+                    />
+                  </td>
+                  <td>
+                    <button onClick={() => handleSave(editingEntry)}>Save</button>
+                    <button onClick={handleCancel}>Cancel</button>
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td>{entry.date}</td>
+                  <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                  <td>{entry.itemName}</td>
+                  <td>${entry.amount.toFixed(2)}</td>
+                  <td>
+                    <button onClick={() => handleEdit(entry)}>Edit</button>
+                  </td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
@@ -124,6 +360,9 @@ const History: React.FC = () => {
         <p>Balance at the start of period: ${startBalance.toFixed(2)}</p>
         <p>Balance at the end of period: ${endBalance.toFixed(2)}</p>
         <p>Change in balance: ${(endBalance - startBalance).toFixed(2)}</p>
+        <button onClick={generatePDF} className="bg-blue-500 text-white px-4 py-2 rounded mt-4">
+          Download PDF Report
+        </button>
       </div>
     </div>
   );

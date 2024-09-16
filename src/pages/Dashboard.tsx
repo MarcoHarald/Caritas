@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SalesIncomeForm from '../components/SalesIncomeForm';
 import ExpenseForm from '../components/ExpenseForm';
-import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 interface Entry {
@@ -18,6 +18,7 @@ const Dashboard: React.FC = () => {
   const [recentEntries, setRecentEntries] = useState<Entry[]>([]);
   const [lastAddedEntry, setLastAddedEntry] = useState<Entry | null>(null);
   const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
 
   const fetchRecentEntries = async () => {
     const salesQuery = query(collection(db, 'sales'), orderBy('createdAt', 'desc'), limit(10));
@@ -63,6 +64,30 @@ const Dashboard: React.FC = () => {
       setLastAddedEntry(null);
       setHighlightedEntryId(null);
     }, 5000);
+  };
+
+  const handleEdit = (entry: Entry) => {
+    setEditingEntry(entry);
+  };
+
+  const handleSave = async (updatedEntry: Entry) => {
+    try {
+      const entryRef = doc(db, updatedEntry.type === 'sale' ? 'sales' : 'expenses', updatedEntry.id);
+      await updateDoc(entryRef, {
+        date: updatedEntry.date,
+        itemName: updatedEntry.itemName,
+        amount: updatedEntry.amount,
+      });
+      setEditingEntry(null);
+      fetchRecentEntries();
+    } catch (error) {
+      console.error('Error updating entry:', error);
+      alert('Error updating entry. Please try again.');
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingEntry(null);
   };
 
   return (
@@ -119,15 +144,52 @@ const Dashboard: React.FC = () => {
               <th>Type</th>
               <th>Item Name</th>
               <th>Amount</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {recentEntries.map((entry) => (
               <tr key={entry.id} className={entry.id === highlightedEntryId ? 'highlighted' : ''}>
-                <td>{entry.date}</td>
-                <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
-                <td>{entry.itemName}</td>
-                <td>${entry.amount.toFixed(2)}</td>
+                {editingEntry && editingEntry.id === entry.id ? (
+                  <>
+                    <td>
+                      <input
+                        type="date"
+                        value={editingEntry.date}
+                        onChange={(e) => setEditingEntry({ ...editingEntry, date: e.target.value })}
+                      />
+                    </td>
+                    <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                    <td>
+                      <input
+                        type="text"
+                        value={editingEntry.itemName}
+                        onChange={(e) => setEditingEntry({ ...editingEntry, itemName: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={editingEntry.amount}
+                        onChange={(e) => setEditingEntry({ ...editingEntry, amount: parseFloat(e.target.value) })}
+                      />
+                    </td>
+                    <td>
+                      <button onClick={() => handleSave(editingEntry)}>Save</button>
+                      <button onClick={handleCancel}>Cancel</button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{entry.date}</td>
+                    <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                    <td>{entry.itemName}</td>
+                    <td>${entry.amount.toFixed(2)}</td>
+                    <td>
+                      <button onClick={() => handleEdit(entry)}>Edit</button>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
