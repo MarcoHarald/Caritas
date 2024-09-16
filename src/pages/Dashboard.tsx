@@ -3,6 +3,7 @@ import SalesIncomeForm from '../components/SalesIncomeForm';
 import ExpenseForm from '../components/ExpenseForm';
 import { collection, query, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { format } from 'date-fns';
 
 interface Entry {
   id: string;
@@ -62,8 +63,10 @@ const Dashboard: React.FC = () => {
     setHighlightedEntryId(newEntry.id);
     setTimeout(() => {
       setLastAddedEntry(null);
+    }, 3000);
+    setTimeout(() => {
       setHighlightedEntryId(null);
-    }, 5000);
+    }, 10000);
   };
 
   const handleEdit = (entry: Entry) => {
@@ -90,66 +93,69 @@ const Dashboard: React.FC = () => {
     setEditingEntry(null);
   };
 
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMMM d, yyyy');
+  };
+
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <div className="dashboard-buttons">
+    <div className="dashboard relative">
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      <div className="dashboard-buttons mb-4">
         <button 
           onClick={() => toggleForm('sales')}
-          className={`btn-sales ${activeForm === 'sales' ? 'active' : ''}`}
+          className={`btn-sales ${activeForm === 'sales' ? 'active' : ''} bg-green-500 text-white px-4 py-2 rounded mr-2`}
         >
           {activeForm === 'sales' ? 'Hide Sales Form' : 'Add Sales'}
         </button>
         <button 
           onClick={() => toggleForm('expenses')}
-          className={`btn-expenses ${activeForm === 'expenses' ? 'active' : ''}`}
+          className={`btn-expenses ${activeForm === 'expenses' ? 'active' : ''} bg-red-500 text-white px-4 py-2 rounded`}
         >
           {activeForm === 'expenses' ? 'Hide Expense Form' : 'Add Expenses'}
         </button>
       </div>
-      {activeForm === 'sales' && (
-        <div className="form-container sales-form">
-          <SalesIncomeForm onEntryAdded={handleEntryAdded} />
-          {lastAddedEntry && lastAddedEntry.type === 'sale' && (
-            <div className="entry-added-popup sales-popup">
-              <h3>Entry Added Successfully</h3>
-              <p>Date: {lastAddedEntry.date}</p>
-              <p>Type: Sale</p>
-              <p>Item Name: {lastAddedEntry.itemName}</p>
-              <p>Amount: ${lastAddedEntry.amount.toFixed(2)}</p>
+      <div className="form-container relative">
+        {activeForm === 'sales' && (
+          <div className="sales-form mb-4">
+            <SalesIncomeForm onEntryAdded={handleEntryAdded} />
+          </div>
+        )}
+        {activeForm === 'expenses' && (
+          <div className="expenses-form mb-4">
+            <ExpenseForm onEntryAdded={handleEntryAdded} />
+          </div>
+        )}
+        {lastAddedEntry && (
+          <div className={`absolute inset-0 flex items-center justify-center bg-opacity-90 ${
+            lastAddedEntry.type === 'sale' ? 'bg-green-100' : 'bg-red-100'
+          }`}>
+            <div className={`p-4 rounded-lg shadow-lg ${
+              lastAddedEntry.type === 'sale' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
+            }`}>
+              <h3 className="text-lg font-semibold mb-2">Great! Your entry has been added.</h3>
+              <p><span className="font-medium">Date:</span> {formatDate(lastAddedEntry.date)}</p>
+              <p><span className="font-medium">Type:</span> {lastAddedEntry.type === 'sale' ? 'Income' : 'Expense'}</p>
+              <p><span className="font-medium">Description:</span> {lastAddedEntry.itemName}</p>
+              <p><span className="font-medium">Amount:</span> ${lastAddedEntry.amount.toFixed(2)}</p>
             </div>
-          )}
-        </div>
-      )}
-      {activeForm === 'expenses' && (
-        <div className="form-container expenses-form">
-          <ExpenseForm onEntryAdded={handleEntryAdded} />
-          {lastAddedEntry && lastAddedEntry.type === 'expense' && (
-            <div className="entry-added-popup expenses-popup">
-              <h3>Entry Added Successfully</h3>
-              <p>Date: {lastAddedEntry.date}</p>
-              <p>Type: Expense</p>
-              <p>Item Name: {lastAddedEntry.itemName}</p>
-              <p>Amount: ${lastAddedEntry.amount.toFixed(2)}</p>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
       <div className="recent-entries">
-        <h2>Recent Entries</h2>
-        <table>
+        <h2 className="text-xl font-semibold mb-2">Recent Entries</h2>
+        <table className="w-full">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Item Name</th>
-              <th>Amount</th>
-              <th>Actions</th>
+              <th className="text-left">Date</th>
+              <th className="text-left">Type</th>
+              <th className="text-left">Description</th>
+              <th className="text-left">Amount</th>
+              <th className="text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
             {recentEntries.map((entry) => (
-              <tr key={entry.id} className={entry.id === highlightedEntryId ? 'highlighted' : ''}>
+              <tr key={entry.id} className={`transition-all duration-300 ${entry.id === highlightedEntryId ? 'bg-yellow-100' : ''}`}>
                 {editingEntry && editingEntry.id === entry.id ? (
                   <>
                     <td>
@@ -157,14 +163,16 @@ const Dashboard: React.FC = () => {
                         type="date"
                         value={editingEntry.date}
                         onChange={(e) => setEditingEntry({ ...editingEntry, date: e.target.value })}
+                        className="p-1 border rounded"
                       />
                     </td>
-                    <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                    <td>{entry.type === 'sale' ? 'Income' : 'Expense'}</td>
                     <td>
                       <input
                         type="text"
                         value={editingEntry.itemName}
                         onChange={(e) => setEditingEntry({ ...editingEntry, itemName: e.target.value })}
+                        className="p-1 border rounded w-full"
                       />
                     </td>
                     <td>
@@ -172,21 +180,22 @@ const Dashboard: React.FC = () => {
                         type="number"
                         value={editingEntry.amount}
                         onChange={(e) => setEditingEntry({ ...editingEntry, amount: parseFloat(e.target.value) })}
+                        className="p-1 border rounded w-full"
                       />
                     </td>
                     <td>
-                      <button onClick={() => handleSave(editingEntry)}>Save</button>
-                      <button onClick={handleCancel}>Cancel</button>
+                      <button onClick={() => handleSave(editingEntry)} className="bg-blue-500 text-white px-2 py-1 rounded mr-1">Save</button>
+                      <button onClick={handleCancel} className="bg-gray-300 text-gray-800 px-2 py-1 rounded">Cancel</button>
                     </td>
                   </>
                 ) : (
                   <>
-                    <td>{entry.date}</td>
-                    <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                    <td>{formatDate(entry.date)}</td>
+                    <td>{entry.type === 'sale' ? 'Income' : 'Expense'}</td>
                     <td>{entry.itemName}</td>
                     <td>${entry.amount.toFixed(2)}</td>
                     <td>
-                      <button onClick={() => handleEdit(entry)}>Edit</button>
+                      <button onClick={() => handleEdit(entry)} className="bg-yellow-500 text-white px-2 py-1 rounded">Edit</button>
                     </td>
                   </>
                 )}
