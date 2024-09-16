@@ -1,0 +1,223 @@
+:root {
+  --primary-color: #4a90e2;
+  --secondary-color: #f5a623;
+  --background-color: #f0f0f0;
+  --text-color: #333333;
+  --error-color: #d0021b;
+  --success-color: #7ed321;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1, h2, h3 {
+  color: var(--primary-color);
+}
+
+button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #3a7bc8;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"] {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.nav-menu {
+  background-color: var(--primary-color);
+  padding: 10px 0;
+}
+
+.nav-menu ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.nav-menu li {
+  margin: 0 15px;
+}
+
+.nav-menu a {
+  color: white;
+  text-decoration: none;
+  font-size: 18px;
+}
+
+.nav-menu a:hover {
+  text-decoration: underline;
+}
+
+.card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.dashboard-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+}
+
+.dashboard-buttons button {
+  font-size: 18px;
+  padding: 15px 30px;
+  border-radius: 8px;
+}
+
+.btn-sales {
+  background-color: #4CAF50; /* Green */
+}
+
+.btn-sales:hover, .btn-sales.active {
+  background-color: #45a049;
+}
+
+.btn-expenses {
+  background-color: #f44336; /* Red */
+}
+
+.btn-expenses:hover, .btn-expenses.active {
+  background-color: #da190b;
+}
+
+.form-container {
+  position: relative;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.sales-form {
+  background-color: #e8f5e9; /* Light Green */
+}
+
+.expenses-form {
+  background-color: #ffebee; /* Light Red */
+}
+
+.recent-entries {
+  margin-top: 40px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+tr:hover {
+  background-color: #ddd;
+}
+
+.entry-added-popup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  z-index: 1000;
+}
+
+.entry-added-popup h3 {
+  margin-top: 0;
+  color: white;
+}
+
+.sales-popup {
+  background-color: rgba(76, 175, 80, 0.9); /* Green with opacity */
+}
+
+.expenses-popup {
+  background-color: rgba(244, 67, 54, 0.9); /* Red with opacity */
+}
+
+tr.highlighted {
+  background-color: #fff9c4 !important; /* Light yellow */
+  transition: background-color 0.5s ease;
+}
+
+.date-selector {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.date-selector label {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-selector input {
+  margin-top: 5px;
+}
+
+.balance-summary {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #e8f5e9;
+  border-radius: 8px;
+}
+
+.balance-summary p {
+  margin: 10px 0;
+  font-weight: bold;
+}
