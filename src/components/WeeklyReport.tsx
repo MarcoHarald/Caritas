@@ -93,6 +93,27 @@ const WeeklyReport: React.FC = () => {
     return Object.entries(grouped).map(([date, values]) => ({ date, ...values }));
   };
 
+  const formatDate = (date: string) => {
+    try {
+      return format(parseISO(date), 'MMM d');
+    } catch {
+      return date;
+    }
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="custom-tooltip bg-white p-4 border rounded shadow">
+          <p className="label font-bold">{groupBy === 'daily' ? formatDate(label) : label}</p>
+          <p className="income text-green-600">Income: ${payload[0].value.toFixed(2)}</p>
+          <p className="expenses text-red-600">Expenses: ${payload[1].value.toFixed(2)}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const formatXAxis = (tickItem: string) => {
     if (groupBy === 'daily') {
       try {
@@ -125,9 +146,9 @@ const WeeklyReport: React.FC = () => {
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={formatXAxis} />
+            <XAxis dataKey="date" tickFormatter={formatDate} />
             <YAxis />
-            <Tooltip />
+            <Tooltip content={<CustomTooltip />} />
             <Legend />
             <Bar dataKey="sales" fill="#10B981" name="Income" />
             <Bar dataKey="expenses" fill="#EF4444" name="Expenses" />
