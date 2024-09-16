@@ -4,6 +4,8 @@ import { useAuth } from './hooks/useAuth';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import History from './pages/History';
+import Lending from './pages/Lending';
+import VolunteerTracking from './pages/VolunteerTracking';
 import './styles/global.css';
 
 const App: React.FC = () => {
@@ -26,6 +28,8 @@ const App: React.FC = () => {
             <li><Link to="/">Dashboard</Link></li>
             <li><Link to="/reports">View Reports</Link></li>
             <li><Link to="/history">History</Link></li>
+            <li><Link to="/lending">Lending</Link></li>
+            <li><Link to="/volunteers">Volunteers</Link></li>
           </ul>
         </nav>
 
@@ -34,6 +38,8 @@ const App: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/history" element={<History />} />
+            <Route path="/lending" element={<Lending />} />
+            <Route path="/volunteers" element={<VolunteerTracking />} />
           </Routes>
         </div>
       </div>
