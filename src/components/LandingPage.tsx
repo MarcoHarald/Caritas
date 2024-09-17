@@ -1,11 +1,28 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { useLanguage } from '../contexts/LanguageContext';
 import SignIn from './SignIn';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const auth = getAuth();
+  const { language } = useLanguage();
+
+  const t = {
+    en: {
+      title: 'Financial Tracking Made Easy for Charities',
+      subtitle: 'Streamline your financial management and focus on what matters most - your cause.',
+      getStarted: 'Get Started for Free',
+      // Add more translations as needed
+    },
+    it: {
+      title: 'Gestione Finanziaria Semplificata per Enti di Beneficenza',
+      subtitle: 'Ottimizza la tua gestione finanziaria e concentrati su ciò che conta di più: la tua causa.',
+      getStarted: 'Inizia Gratuitamente',
+      // Add more translations as needed
+    }
+  }[language];
 
   const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider();
@@ -37,10 +54,10 @@ const LandingPage: React.FC = () => {
       {/* Hero Section */}
       <section className="bg-blue-500 text-white py-20">
         <div className="container mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-4">Financial Tracking Made Easy for Charities</h1>
-          <p className="text-xl mb-8">Streamline your financial management and focus on what matters most - your cause.</p>
+          <h1 className="text-4xl font-bold mb-4">{t.title}</h1>
+          <p className="text-xl mb-8">{t.subtitle}</p>
           <button onClick={handleGoogleSignIn} className="bg-white text-blue-500 px-6 py-3 rounded-full font-bold hover:bg-blue-100 transition duration-300">
-            Get Started for Free
+            {t.getStarted}
           </button>
         </div>
       </section>
