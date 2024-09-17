@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SalesIncomeForm from '../components/SalesIncomeForm';
 import ExpenseForm from '../components/ExpenseForm';
-import { collection, query, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { format } from 'date-fns';
 
@@ -89,6 +89,19 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleDelete = async (entry: Entry) => {
+    if (window.confirm(`Are you sure you want to delete this ${entry.type}?`)) {
+      try {
+        const entryRef = doc(db, entry.type === 'sale' ? 'sales' : 'expenses', entry.id);
+        await deleteDoc(entryRef);
+        setRecentEntries(recentEntries.filter(e => e.id !== entry.id));
+      } catch (error) {
+        console.error('Error deleting entry:', error);
+        alert('Error deleting entry. Please try again.');
+      }
+    }
+  };
+
   const handleCancel = () => {
     setEditingEntry(null);
   };
@@ -117,12 +130,20 @@ const Dashboard: React.FC = () => {
       <div className="form-container relative">
         {activeForm === 'sales' && (
           <div className="sales-form mb-4">
-            <SalesIncomeForm onEntryAdded={handleEntryAdded} />
+            <SalesIncomeForm 
+              onEntryAdded={handleEntryAdded} 
+              buttonStyle="bg-green-500 text-white px-2 py-1 rounded" 
+              titleStyle="text-xl font-semibold mb-2 text-green-600"
+            />
           </div>
         )}
         {activeForm === 'expenses' && (
           <div className="expenses-form mb-4">
-            <ExpenseForm onEntryAdded={handleEntryAdded} />
+            <ExpenseForm 
+              onEntryAdded={handleEntryAdded} 
+              buttonStyle="bg-red-500 text-white px-2 py-1 rounded" 
+              titleStyle="text-xl font-semibold mb-2 text-red-600"
+            />
           </div>
         )}
         {lastAddedEntry && (
@@ -185,7 +206,8 @@ const Dashboard: React.FC = () => {
                     </td>
                     <td>
                       <button onClick={() => handleSave(editingEntry)} className="bg-blue-500 text-white px-2 py-1 rounded mr-1">Save</button>
-                      <button onClick={handleCancel} className="bg-gray-300 text-gray-800 px-2 py-1 rounded">Cancel</button>
+                      <button onClick={handleCancel} className="bg-gray-300 text-gray-800 px-2 py-1 rounded mr-1">Cancel</button>
+                      <button onClick={() => handleDelete(entry)} className="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
                     </td>
                   </>
                 ) : (

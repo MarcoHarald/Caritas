@@ -3,10 +3,12 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 interface SalesIncomeFormProps {
-  onEntryAdded: (entry: any) => void;
+  onEntryAdded: (entry: Entry) => void;
+  buttonStyle: string;
+  titleStyle: string;
 }
 
-const SalesIncomeForm: React.FC<SalesIncomeFormProps> = ({ onEntryAdded }) => {
+const SalesIncomeForm: React.FC<SalesIncomeFormProps> = ({ onEntryAdded, buttonStyle, titleStyle }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [itemName, setItemName] = useState('');
   const [amount, setAmount] = useState('');
@@ -39,7 +41,7 @@ const SalesIncomeForm: React.FC<SalesIncomeFormProps> = ({ onEntryAdded }) => {
 
   return (
     <div className="card">
-      <h2>Add Sales</h2>
+      <h2 className={titleStyle}>Add Sales</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="date">Date</label>
@@ -73,7 +75,7 @@ const SalesIncomeForm: React.FC<SalesIncomeFormProps> = ({ onEntryAdded }) => {
             required
           />
         </div>
-        <button type="submit">Save Sales Entry</button>
+        <button type="submit" className={buttonStyle}>Save Sales Entry</button>
       </form>
     </div>
   );

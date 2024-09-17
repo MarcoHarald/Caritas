@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { format as formatDate } from 'date-fns';
+import { format } from 'date-fns';
 
 interface Entry {
   id: string;
@@ -276,17 +277,35 @@ const History: React.FC = () => {
     setEditingEntry(null);
   };
 
+  const handleDelete = async (entry: Entry) => {
+    if (window.confirm(`Are you sure you want to delete this ${entry.type}?`)) {
+      try {
+        const entryRef = doc(db, entry.type === 'sale' ? 'sales' : 'expenses', entry.id);
+        await deleteDoc(entryRef);
+        fetchEntries();
+      } catch (error) {
+        console.error('Error deleting entry:', error);
+        alert('Error deleting entry. Please try again.');
+      }
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM d, yyyy');
+  };
+
   return (
     <div>
-      <h1>History</h1>
-      <div className="date-selector">
-        <label>
+      <h1 className="text-2xl font-bold mb-4">History</h1>
+      <div className="date-selector mb-4">
+        <label className="mr-4">
           Start Date:
           <input
             type="date"
             name="startDate"
             value={startDate}
             onChange={handleDateChange}
+            className="ml-2 p-2 border rounded"
           />
         </label>
         <label>
@@ -296,17 +315,18 @@ const History: React.FC = () => {
             name="endDate"
             value={endDate}
             onChange={handleDateChange}
+            className="ml-2 p-2 border rounded"
           />
         </label>
       </div>
-      <table>
+      <table className="w-full">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Item Name</th>
-            <th>Amount</th>
-            <th>Actions</th>
+            <th className="text-left">Date</th>
+            <th className="text-left">Type</th>
+            <th className="text-left">Description</th>
+            <th className="text-left">Amount</th>
+            <th className="text-left">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -319,14 +339,16 @@ const History: React.FC = () => {
                       type="date"
                       value={editingEntry.date}
                       onChange={(e) => setEditingEntry({ ...editingEntry, date: e.target.value })}
+                      className="p-1 border rounded"
                     />
                   </td>
-                  <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                  <td>{entry.type === 'sale' ? 'Income' : 'Expense'}</td>
                   <td>
                     <input
                       type="text"
                       value={editingEntry.itemName}
                       onChange={(e) => setEditingEntry({ ...editingEntry, itemName: e.target.value })}
+                      className="p-1 border rounded w-full"
                     />
                   </td>
                   <td>
@@ -334,21 +356,23 @@ const History: React.FC = () => {
                       type="number"
                       value={editingEntry.amount}
                       onChange={(e) => setEditingEntry({ ...editingEntry, amount: parseFloat(e.target.value) })}
+                      className="p-1 border rounded w-full"
                     />
                   </td>
                   <td>
-                    <button onClick={() => handleSave(editingEntry)}>Save</button>
-                    <button onClick={handleCancel}>Cancel</button>
+                    <button onClick={() => handleSave(editingEntry)} className="bg-blue-500 text-white px-2 py-1 rounded mr-1">Save</button>
+                    <button onClick={handleCancel} className="bg-gray-300 text-gray-800 px-2 py-1 rounded mr-1">Cancel</button>
+                    <button onClick={() => handleDelete(entry)} className="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
                   </td>
                 </>
               ) : (
                 <>
-                  <td>{entry.date}</td>
-                  <td>{entry.type === 'sale' ? 'Sale' : 'Expense'}</td>
+                  <td>{formatDate(entry.date)}</td>
+                  <td>{entry.type === 'sale' ? 'Income' : 'Expense'}</td>
                   <td>{entry.itemName}</td>
                   <td>${entry.amount.toFixed(2)}</td>
                   <td>
-                    <button onClick={() => handleEdit(entry)}>Edit</button>
+                    <button onClick={() => handleEdit(entry)} className="bg-yellow-500 text-white px-2 py-1 rounded">Edit</button>
                   </td>
                 </>
               )}
@@ -356,7 +380,7 @@ const History: React.FC = () => {
           ))}
         </tbody>
       </table>
-      <div className="balance-summary">
+      <div className="balance-summary mt-4 p-4 bg-gray-100 rounded">
         <p>Balance at the start of period: ${startBalance.toFixed(2)}</p>
         <p>Balance at the end of period: ${endBalance.toFixed(2)}</p>
         <p>Change in balance: ${(endBalance - startBalance).toFixed(2)}</p>
