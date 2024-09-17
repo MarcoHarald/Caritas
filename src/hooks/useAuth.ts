@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAuth, signInAnonymously, User } from 'firebase/auth';
+import { getAuth, signInAnonymously, signOut as firebaseSignOut, User } from 'firebase/auth';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -22,5 +22,14 @@ export const useAuth = () => {
     }
   };
 
-  return { user, signIn };
+  const signOut = async () => {
+    const auth = getAuth();
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  return { user, signIn, signOut };
 };
