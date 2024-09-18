@@ -9,6 +9,7 @@ import Reports from './pages/Reports';
 import History from './pages/History';
 import Lending from './pages/Lending';
 import GiftedItems from './pages/GiftedItems';
+import DisposedTrash from './pages/DisposedTrash';
 import VolunteerTracking from './pages/VolunteerTracking';
 import './styles/global.css';
 
@@ -60,7 +61,8 @@ const AppContent: React.FC = () => {
                       { to: "/reports", label: t.viewReports },
                       { to: "/history", label: t.history },
                       { to: "/lending", label: t.lending },
-                      { to: "/gifted-items", label: "Gifted Items" },
+                      { to: "/gifted-items", label: t.giftedItems },
+                      { to: "/disposed-trash", label: t.disposedTrash },
                       { to: "/volunteers", label: t.volunteers },
                     ].map((item) => (
                       <Link
@@ -97,6 +99,7 @@ const AppContent: React.FC = () => {
                       <Route path="/history" element={<History />} />
                       <Route path="/lending" element={<Lending />} />
                       <Route path="/gifted-items" element={<GiftedItems />} />
+                      <Route path="/disposed-trash" element={<DisposedTrash />} />
                       <Route path="/volunteers" element={<VolunteerTracking />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>

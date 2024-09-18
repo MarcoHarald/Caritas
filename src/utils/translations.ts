@@ -7,6 +7,7 @@ export const translations = {
     volunteers: 'Volunteers',
     logout: 'Logout',
     giftedItems: 'Gifted Items',
+    disposedTrash: 'Disposed Trash',
     // Add more English translations here
   },
   it: {
@@ -17,6 +18,7 @@ export const translations = {
     volunteers: 'Volontari',
     logout: 'Esci',
     giftedItems: 'Oggetti Donati',
+    disposedTrash: 'Rifiuti Smaltiti',
     // Add more Italian translations here
   }
 };
