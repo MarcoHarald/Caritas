@@ -6,6 +6,7 @@ export const translations = {
     lending: 'Lending',
     volunteers: 'Volunteers',
     logout: 'Logout',
+    giftedItems: 'Gifted Items',
     // Add more English translations here
   },
   it: {
@@ -15,6 +16,7 @@ export const translations = {
     lending: 'Prestiti',
     volunteers: 'Volontari',
     logout: 'Esci',
+    giftedItems: 'Oggetti Donati',
     // Add more Italian translations here
   }
 };
