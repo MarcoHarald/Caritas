@@ -38,12 +38,20 @@ const DisposedTrash: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setNewItem(prev => ({ ...prev, [name]: name === 'date' ? value : parseInt(value) || 0 }));
+    setNewItem(prev => ({ 
+      ...prev, 
+      [name]: name === 'date' ? value : 
+               (name === 'notes' ? value : parseInt(value) || 0) 
+    }));
   };
 
   const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditingItem(prev => prev ? { ...prev, [name]: name === 'date' ? value : parseInt(value) || 0 } : null);
+    setEditingItem(prev => prev ? { 
+      ...prev, 
+      [name]: name === 'date' ? value : 
+               (name === 'notes' ? value : parseInt(value) || 0) 
+    } : null);
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -214,12 +222,12 @@ const DisposedTrash: React.FC = () => {
                     />
                   </td>
                   <td>
-                    <input
-                      type="text"
+                    <textarea
                       name="notes"
                       value={editingItem.notes}
                       onChange={handleEditInputChange}
                       className="w-full p-1 border rounded"
+                      rows={3}
                     />
                   </td>
                   <td>
