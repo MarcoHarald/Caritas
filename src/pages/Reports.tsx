@@ -4,9 +4,105 @@ import LendingSummary from '../components/LendingSummary';
 import GiftedItemsSummary from '../components/GiftedItemsSummary';
 import DisposedTrashChart from '../components/DisposedTrashChart';
 import VolunteerHoursChart from '../components/VolunteerHoursChart';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '../services/firebase';
+import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
 
 const Reports: React.FC = () => {
   const [groupBy, setGroupBy] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [incomeData, setIncomeData] = useState<any[]>([]);
+  const [expensesData, setExpensesData] = useState<any[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    return format(lastMonth, 'yyyy-MM');
+  });
+  const [volunteerHours, setVolunteerHours] = useState<any[]>([]);
+  const [disposedTrash, setDisposedTrash] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchFinancialData();
+    fetchVolunteerHours();
+    fetchDisposedTrash();
+  }, [selectedPeriod]);
+
+  const fetchFinancialData = async () => {
+    const [year, month] = selectedPeriod.split('-');
+    const startDate = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+    const endDate = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+
+    const salesQuery = query(
+      collection(db, 'sales'),
+      where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+      where('date', '<=', format(endDate, 'yyyy-MM-dd'))
+    );
+
+    const expensesQuery = query(
+      collection(db, 'expenses'),
+      where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+      where('date', '<=', format(endDate, 'yyyy-MM-dd'))
+    );
+
+    const [salesSnapshot, expensesSnapshot] = await Promise.all([
+      getDocs(salesQuery),
+      getDocs(expensesQuery),
+    ]);
+
+    const incomeData = salesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    const expensesData = expensesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setIncomeData(incomeData);
+    setExpensesData(expensesData);
+  };
+
+  const fetchVolunteerHours = async () => {
+    const [year, month] = selectedPeriod.split('-');
+    const startDate = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+    const endDate = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+
+    const volunteerQuery = query(
+      collection(db, 'volunteerSessions'),
+      where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+      where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+      orderBy('date', 'asc')
+    );
+
+    const volunteerSnapshot = await getDocs(volunteerQuery);
+    const volunteerData = volunteerSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setVolunteerHours(volunteerData);
+  };
+
+  const fetchDisposedTrash = async () => {
+    const [year, month] = selectedPeriod.split('-');
+    const startDate = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+    const endDate = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+
+    const trashQuery = query(
+      collection(db, 'disposedTrash'),
+      where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+      where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+      orderBy('date', 'asc')
+    );
+
+    const trashSnapshot = await getDocs(trashQuery);
+    const trashData = trashSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setDisposedTrash(trashData);
+  };
 
   return (
     <div className="p-6">
@@ -29,6 +125,81 @@ const Reports: React.FC = () => {
 
       <WeeklyReport groupBy={groupBy} />
       
+      <div className="mt-8">
+        <h2 className="text-2xl font-semibold mb-4">Financial Details</h2>
+        <div className="mb-4">
+          <label className="mr-2">
+            Select Period:
+            <input
+              type="month"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="ml-2 p-2 border rounded"
+            />
+          </label>
+        </div>
+        <div className="flex space-x-4">
+          <div className="w-1/2">
+            <h3 className="text-xl font-semibold mb-2">Income</h3>
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 p-2">Date</th>
+                  <th className="border border-gray-300 p-2">Item</th>
+                  <th className="border border-gray-300 p-2">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incomeData.map((item) => (
+                  <tr key={item.id}>
+                    <td className="border border-gray-300 p-2">{item.date}</td>
+                    <td className="border border-gray-300 p-2">{item.itemName}</td>
+                    <td className="border border-gray-300 p-2">${item.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-100 font-semibold">
+                  <td className="border border-gray-300 p-2" colSpan={2}>Total</td>
+                  <td className="border border-gray-300 p-2">
+                    ${incomeData.reduce((sum, item) => sum + item.amount, 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div className="w-1/2">
+            <h3 className="text-xl font-semibold mb-2">Expenses</h3>
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 p-2">Date</th>
+                  <th className="border border-gray-300 p-2">Item</th>
+                  <th className="border border-gray-300 p-2">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expensesData.map((item) => (
+                  <tr key={item.id}>
+                    <td className="border border-gray-300 p-2">{item.date}</td>
+                    <td className="border border-gray-300 p-2">{item.itemName}</td>
+                    <td className="border border-gray-300 p-2">${item.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-100 font-semibold">
+                  <td className="border border-gray-300 p-2" colSpan={2}>Total</td>
+                  <td className="border border-gray-300 p-2">
+                    ${expensesData.reduce((sum, item) => sum + item.amount, 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      
       <div className="mt-12 grid grid-cols-2 gap-8">
         <LendingSummary />
         <GiftedItemsSummary />
@@ -36,10 +207,54 @@ const Reports: React.FC = () => {
 
       <div className="mt-12">
         <DisposedTrashChart groupBy={groupBy} />
+        <div className="mt-4">
+          <h3 className="text-xl font-semibold mb-2">Disposed Trash Breakdown</h3>
+          <table className="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 p-2">Date</th>
+                <th className="border border-gray-300 p-2">Blue Bags</th>
+                <th className="border border-gray-300 p-2">Yellow Bags</th>
+                <th className="border border-gray-300 p-2">Trips to Landfill</th>
+              </tr>
+            </thead>
+            <tbody>
+              {disposedTrash.map((item) => (
+                <tr key={item.id}>
+                  <td className="border border-gray-300 p-2">{item.date}</td>
+                  <td className="border border-gray-300 p-2">{item.blueBags}</td>
+                  <td className="border border-gray-300 p-2">{item.yellowBags}</td>
+                  <td className="border border-gray-300 p-2">{item.tripsToLandfill}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="mt-12">
         <VolunteerHoursChart groupBy={groupBy} />
+        <div className="mt-4">
+          <h3 className="text-xl font-semibold mb-2">Volunteer Hours Breakdown</h3>
+          <table className="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 p-2">Date</th>
+                <th className="border border-gray-300 p-2">Volunteer</th>
+                <th className="border border-gray-300 p-2">Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {volunteerHours.map((item) => (
+                <tr key={item.id}>
+                  <td className="border border-gray-300 p-2">{item.date}</td>
+                  <td className="border border-gray-300 p-2">{item.volunteerName}</td>
+                  <td className="border border-gray-300 p-2">{item.hours}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
