@@ -190,8 +190,8 @@ const Reports: React.FC = () => {
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">Reports</h1>
       
-      <div className="mb-6">
-        <label className="mr-2">
+      <div className="mb-6 flex items-center">
+        <label className="mr-4">
           Select Period:
           <select 
             value={selectedPeriod} 
@@ -205,10 +205,7 @@ const Reports: React.FC = () => {
             ))}
           </select>
         </label>
-      </div>
-
-      <div className="mb-4">
-        <label className="mr-2">
+        <label>
           Group by:
           <select 
             value={groupBy} 
@@ -222,7 +219,7 @@ const Reports: React.FC = () => {
         </label>
       </div>
 
-      <WeeklyReport groupBy={groupBy} />
+      <WeeklyReport groupBy={groupBy} data={incomeData} expensesData={expensesData} />
       
       <div className="mt-8">
         <h2 className="text-2xl font-semibold mb-4">Financial Details</h2>

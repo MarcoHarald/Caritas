@@ -1,77 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { startOfDay, endOfDay, subMonths, format, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
-const WeeklyReport: React.FC = () => {
-  const [data, setData] = useState<any[]>([]);
-  const [groupBy, setGroupBy] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+interface WeeklyReportProps {
+  groupBy: 'daily' | 'weekly' | 'monthly';
+  data: any[];
+  expensesData: any[];
+}
+
+const WeeklyReport: React.FC<WeeklyReportProps> = ({ groupBy, data, expensesData }) => {
+  const [chartData, setChartData] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const endDate = new Date();
-      let startDate: Date;
-      
-      switch (groupBy) {
-        case 'daily':
-          startDate = subMonths(endDate, 1); // Show last month for daily view
-          break;
-        case 'weekly':
-          startDate = subMonths(endDate, 3); // Show last 3 months for weekly view
-          break;
-        case 'monthly':
-          startDate = subMonths(endDate, 12); // Show last 12 months for monthly view
-          break;
+    const combinedData = combineData(data, expensesData);
+    const groupedData = groupData(combinedData, groupBy);
+    setChartData(groupedData);
+  }, [groupBy, data, expensesData]);
+
+  const combineData = (incomeData: any[], expensesData: any[]) => {
+    const combined: { [key: string]: { income: number; expenses: number } } = {};
+
+    incomeData.forEach((item) => {
+      if (!combined[item.date]) {
+        combined[item.date] = { income: 0, expenses: 0 };
       }
+      combined[item.date].income += item.amount;
+    });
 
-      const salesQuery = query(
-        collection(db, 'sales'),
-        where('date', '>=', startOfDay(startDate).toISOString().split('T')[0]),
-        where('date', '<=', endOfDay(endDate).toISOString().split('T')[0])
-      );
+    expensesData.forEach((item) => {
+      if (!combined[item.date]) {
+        combined[item.date] = { income: 0, expenses: 0 };
+      }
+      combined[item.date].expenses += item.amount;
+    });
 
-      const expensesQuery = query(
-        collection(db, 'expenses'),
-        where('date', '>=', startOfDay(startDate).toISOString().split('T')[0]),
-        where('date', '<=', endOfDay(endDate).toISOString().split('T')[0])
-      );
-
-      const salesSnapshot = await getDocs(salesQuery);
-      const expensesSnapshot = await getDocs(expensesQuery);
-
-      const salesByDate: { [key: string]: number } = {};
-      const expensesByDate: { [key: string]: number } = {};
-
-      salesSnapshot.forEach((doc) => {
-        const { date, amount } = doc.data();
-        salesByDate[date] = (salesByDate[date] || 0) + amount;
-      });
-
-      expensesSnapshot.forEach((doc) => {
-        const { date, amount } = doc.data();
-        expensesByDate[date] = (expensesByDate[date] || 0) + amount;
-      });
-
-      const combinedData = Object.keys({ ...salesByDate, ...expensesByDate })
-        .sort()
-        .map((date) => ({
-          date,
-          sales: salesByDate[date] || 0,
-          expenses: expensesByDate[date] || 0,
-        }));
-
-      const groupedData = groupData(combinedData, groupBy);
-      setData(groupedData);
-    };
-
-    fetchData();
-  }, [groupBy]);
+    return Object.entries(combined).map(([date, values]) => ({ date, ...values }));
+  };
 
   const groupData = (data: any[], grouping: 'daily' | 'weekly' | 'monthly') => {
     if (grouping === 'daily') return data;
 
-    const grouped: { [key: string]: { sales: number; expenses: number } } = {};
+    const grouped: { [key: string]: { income: number; expenses: number } } = {};
 
     data.forEach((item) => {
       const date = parseISO(item.date);
@@ -84,9 +53,9 @@ const WeeklyReport: React.FC = () => {
       }
 
       if (!grouped[key]) {
-        grouped[key] = { sales: 0, expenses: 0 };
+        grouped[key] = { income: 0, expenses: 0 };
       }
-      grouped[key].sales += item.sales;
+      grouped[key].income += item.income;
       grouped[key].expenses += item.expenses;
     });
 
@@ -114,43 +83,17 @@ const WeeklyReport: React.FC = () => {
     return null;
   };
 
-  const formatXAxis = (tickItem: string) => {
-    if (groupBy === 'daily') {
-      try {
-        return format(parseISO(tickItem), 'MMM d');
-      } catch {
-        return tickItem;
-      }
-    }
-    return tickItem;
-  };
-
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Financial Report</h2>
-      <div className="mb-4">
-        <label className="mr-2">
-          Group by:
-          <select 
-            value={groupBy} 
-            onChange={(e) => setGroupBy(e.target.value as 'daily' | 'weekly' | 'monthly')}
-            className="ml-2 p-2 border rounded"
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </label>
-      </div>
-      {data.length > 0 ? (
+      {chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={data}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" tickFormatter={formatDate} />
+            <XAxis dataKey="date" tickFormatter={groupBy === 'daily' ? formatDate : undefined} />
             <YAxis />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
-            <Bar dataKey="sales" fill="#10B981" name="Income" />
+            <Bar dataKey="income" fill="#10B981" name="Income" />
             <Bar dataKey="expenses" fill="#EF4444" name="Expenses" />
           </BarChart>
         </ResponsiveContainer>
